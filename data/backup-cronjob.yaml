@@ -14,7 +14,7 @@ metadata:
   name: backup-config
   namespace: platform
 data:
-  BACKUP_BUCKET: "CHANGE_ME-giveaway-backups"
+  BACKUP_BUCKET: "emchrismobility-giveaway-backups"
   AWS_DEFAULT_REGION: "eu-west-1"
   DATABASES: "giveaway landing"
 ---
