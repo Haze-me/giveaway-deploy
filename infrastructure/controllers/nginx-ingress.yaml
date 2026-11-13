@@ -52,6 +52,15 @@ spec:
       service:
         type: LoadBalancer
         externalTrafficPolicy: Local
+      # AppArmor is switched off for this pod only. On Ubuntu 24.04 the container runtime's default
+      # AppArmor profile denies signals between processes in the pod: the controller could not tell
+      # NGINX to reload ("kill(...) failed (13: Permission denied)"), so new routes (including the
+      # certificate challenge) were never loaded and returned 404. seccomp stays on.
+      podSecurityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        appArmorProfile:
+          type: Unconfined
       resources:
         requests:
           cpu: 50m
