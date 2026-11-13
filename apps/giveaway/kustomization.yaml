@@ -20,6 +20,6 @@ configMapGenerator:
 # unless you are rolling back (docs/OPERATIONS.md).
 images:
   - name: haze21/birthday-backend
-    newTag: 933fa9b
+    newTag: a7b3ac0
   - name: haze21/birthday-frontend
-    newTag: latest
+    newTag: a7b3ac0
