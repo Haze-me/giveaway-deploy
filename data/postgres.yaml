@@ -94,15 +94,23 @@ spec:
               mountPath: /var/lib/postgresql/data
             - name: init
               mountPath: /docker-entrypoint-initdb.d
+          # The checks use the network address (127.0.0.1), not the local socket. During the very first
+          # start, Postgres runs a temporary server on the socket only while it creates the databases;
+          # checking the network address means "ready" only counts once the real server is up.
+          # The startup probe allows up to 5 minutes for that first start; the other two probes only
+          # begin after it passes, so a slow first start is never killed halfway through.
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres"]
-            initialDelaySeconds: 5
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
             periodSeconds: 5
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres"]
-            initialDelaySeconds: 30
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
             periodSeconds: 10
             failureThreshold: 6
           resources:
