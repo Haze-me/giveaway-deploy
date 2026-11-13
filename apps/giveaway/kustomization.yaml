@@ -1,7 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: giveaway
-
 resources:
   - namespace.yaml
   - backend.yaml
@@ -11,18 +10,16 @@ resources:
   # Created by ./scripts/seal-all.sh (encrypted, safe to commit). Until it exists, Flux reports
   # that this Kustomization cannot build; that is expected on a fresh cluster.
   - secrets/giveaway-secrets.sealed.yaml
-
 # Plain (non-secret) settings. Kustomize adds a hash to the ConfigMap's name, so changing a value
 # here (for example PAYOUTS_ENABLED) automatically rolls the backend and workers onto it.
 configMapGenerator:
   - name: giveaway-config
     envs:
       - config.env
-
 # CI rewrites ONLY the newTag lines below (to the git commit of each build). Do not edit by hand
 # unless you are rolling back (docs/OPERATIONS.md).
 images:
   - name: haze21/birthday-backend
-    newTag: latest
+    newTag: 933fa9b
   - name: haze21/birthday-frontend
     newTag: latest
