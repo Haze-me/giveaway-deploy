@@ -18,6 +18,7 @@ echo "==> Installing k3s (stable channel)"
 curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable sh -s - server \
   --write-kubeconfig-mode 644 \
   --secrets-encryption \
+  --disable traefik \
   --node-name giveaway-prod
 
 echo "==> Making kubectl work for this user"

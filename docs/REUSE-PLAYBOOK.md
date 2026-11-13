@@ -53,6 +53,8 @@ Copy `.github/workflows/ci-cd.yml` from the app repo and adjust the paths, test 
 - **IMDS hop limit 2** or pods cannot use the instance role and S3 backups fail.
 - **Flux envsubst:** `${VAR}` in manifests is replaced from `cluster-settings`. A literal `$` needs `$$`.
   Shell scripts with `$` belong in a Kustomization without `postBuild` (the `data` one).
+- **Helm repo addresses move.** The Sealed Secrets chart is at `https://bitnami.github.io/sealed-secrets` (the older `bitnami-labs.github.io` address returns 404). If a HelmRelease says "no artifact available", run `kubectl describe helmrepository <name>` and curl the URL from the server.
+- **`--disable traefik` must really be in the k3s install command** (check `/etc/rancher/k3s/config.yaml` or the service flags); otherwise Traefik keeps ports 80/443 and the NGINX controller's service stays Pending.
 - **Fresh cluster shows red Kustomizations** until the sealed secrets are committed. Expected.
 - **Health probes** must send the right `Host` header (it must be in `ALLOWED_HOSTS`) and
   `X-Forwarded-Proto: https`, or Django answers 400/301 and the pod never becomes Ready.
