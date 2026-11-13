@@ -63,6 +63,14 @@ spec:
         app: postgres
     spec:
       terminationGracePeriodSeconds: 60
+      # Start as the postgres user (uid/gid 70 in the alpine image) from the first instruction.
+      # The image otherwise starts as root and switches user with `gosu`; on this server `gosu`
+      # spun at 100% CPU and never started Postgres. k3s's local-path volumes are created
+      # world-writable, so the postgres user can write to the data folder.
+      securityContext:
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
       containers:
         - name: postgres
           image: postgres:16-alpine
