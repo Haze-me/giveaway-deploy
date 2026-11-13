@@ -67,10 +67,18 @@ spec:
       # The image otherwise starts as root and switches user with `gosu`; on this server `gosu`
       # spun at 100% CPU and never started Postgres. k3s's local-path volumes are created
       # world-writable, so the postgres user can write to the data folder.
+      #
+      # AppArmor is switched off for THIS pod only. On Ubuntu 24.04 the container runtime's default
+      # AppArmor profile denies the signals Postgres and its health checks send to each other
+      # (`dmesg` shows apparmor="DENIED" operation="signal"), which crashed the first start-up
+      # ("pg_ctl: could not send stop signal ... Permission denied"). The container is still
+      # isolated and runs as a non-root user.
       securityContext:
         runAsUser: 70
         runAsGroup: 70
         fsGroup: 70
+        appArmorProfile:
+          type: Unconfined
       containers:
         - name: postgres
           image: postgres:16-alpine

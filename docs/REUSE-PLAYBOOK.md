@@ -55,6 +55,7 @@ Copy `.github/workflows/ci-cd.yml` from the app repo and adjust the paths, test 
   Shell scripts with `$` belong in a Kustomization without `postBuild` (the `data` one).
 - **Helm repo addresses move.** The Sealed Secrets chart is at `https://bitnami.github.io/sealed-secrets` (the older `bitnami-labs.github.io` address returns 404). If a HelmRelease says "no artifact available", run `kubectl describe helmrepository <name>` and curl the URL from the server.
 - **`--disable traefik` must really be in the k3s install command** (check `/etc/rancher/k3s/config.yaml` or the service flags); otherwise Traefik keeps ports 80/443 and the NGINX controller's service stays Pending.
+- **Postgres on Ubuntu 24.04 + k3s:** the official image needed three fixes: run as uid 70 (`gosu` spun at 100% CPU as root), a `startupProbe` with probes on `127.0.0.1`, and `appArmorProfile: Unconfined` on the pod (AppArmor denied the signals between Postgres and its probes; check `sudo dmesg | grep DENIED`). After fixing a broken first start, wipe the empty volume (scale to 0, delete the PVC, scale to 1) because a half-finished data folder is skipped by the init step.
 - **Fresh cluster shows red Kustomizations** until the sealed secrets are committed. Expected.
 - **Health probes** must send the right `Host` header (it must be in `ALLOWED_HOSTS`) and
   `X-Forwarded-Proto: https`, or Django answers 400/301 and the pod never becomes Ready.
