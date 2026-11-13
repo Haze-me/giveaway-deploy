@@ -1,0 +1,8 @@
+# Everything in this repo runs on Linux (the server and the CI runners), so always store LF.
+* text=auto eol=lf
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.pdf binary
+*.pem text eol=lf

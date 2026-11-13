@@ -1,0 +1,111 @@
+# Nightly backup: dump each database, check the dump is readable, upload it to a private S3 bucket.
+# Runs at 02:00 UTC (03:00 in Lagos), when the app is quietest.
+#
+# AWS access: the EC2 instance has an IAM role that may write to the backup bucket ONLY, so no
+# access keys are stored in the cluster. For pods to reach the role, the instance must be launched
+# with the metadata "hop limit" set to 2 (docs/BUILD-RUNBOOK.md, step 2). If you would rather use
+# access keys, create the optional `aws-backup-credentials` secret (AWS_ACCESS_KEY_ID /
+# AWS_SECRET_ACCESS_KEY) and it is picked up automatically.
+#
+# Old backups are removed by an S3 lifecycle rule on the bucket (14 days), not by this job.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  namespace: platform
+data:
+  BACKUP_BUCKET: "CHANGE_ME-giveaway-backups"
+  AWS_DEFAULT_REGION: "eu-west-1"
+  DATABASES: "giveaway landing"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-script
+  namespace: platform
+data:
+  backup.sh: |
+    #!/bin/sh
+    set -eu
+    set -o pipefail
+    apk add --no-cache aws-cli >/dev/null
+    STAMP=$(date -u +%Y%m%d-%H%M%S)
+    for DB in $DATABASES; do
+      FILE="/tmp/$DB-$STAMP.dump"
+      echo "[$(date -u +%FT%TZ)] dumping $DB"
+      pg_dump --format=custom --file="$FILE" "$DB"
+      # A dump that cannot be listed is not a backup. Fail loudly instead of uploading it.
+      pg_restore --list "$FILE" >/dev/null
+      [ -s "$FILE" ]
+      echo "[$(date -u +%FT%TZ)] uploading $DB ($(du -h "$FILE" | cut -f1))"
+      aws s3 cp --only-show-errors "$FILE" "s3://$BACKUP_BUCKET/$DB/$DB-$STAMP.dump"
+      rm -f "$FILE"
+    done
+    echo "[$(date -u +%FT%TZ)] backup finished"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: platform
+spec:
+  schedule: "0 2 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              command: ["sh", "/scripts/backup.sh"]
+              env:
+                - name: PGHOST
+                  value: postgres.platform.svc.cluster.local
+                - name: PGUSER
+                  value: postgres
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: POSTGRES_PASSWORD
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-backup-credentials
+                      key: AWS_ACCESS_KEY_ID
+                      optional: true
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-backup-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                      optional: true
+              envFrom:
+                - configMapRef:
+                    name: backup-config
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                - name: scratch
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: script
+              configMap:
+                name: backup-script
+            - name: scratch
+              emptyDir:
+                sizeLimit: 3Gi

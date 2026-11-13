@@ -1,0 +1,30 @@
+name: Validate manifests
+
+# Catches broken YAML before Flux ever sees it. Runs on pull requests and on every push (including
+# the automatic image-tag commits from the app pipelines).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate (kubectl is preinstalled on GitHub runners)
+        run: ./scripts/validate.sh
+
+      - name: Shell scripts parse
+        run: for f in scripts/*.sh scripts/on-server/*.sh; do bash -n "$f"; done
+
+      # A warning, not a failure, so a fresh clone is still green; run it yourself before go-live.
+      - name: Placeholders left?
+        run: ./scripts/check-placeholders.sh
+        continue-on-error: true

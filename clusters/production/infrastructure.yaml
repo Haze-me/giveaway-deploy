@@ -1,0 +1,40 @@
+# The cluster's shared services, in two steps because the second needs the first's CRDs:
+#   1. controllers: cert-manager, sealed-secrets, NGINX Ingress Controller
+#   2. config: the Let's Encrypt issuers (needs cert-manager's CRDs to exist)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 2m
+  timeout: 10m
+  path: ./infrastructure/controllers
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-config
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infrastructure
+  interval: 10m
+  retryInterval: 2m
+  timeout: 5m
+  path: ./infrastructure/config
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-settings

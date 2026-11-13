@@ -1,0 +1,58 @@
+# F5 NGINX Ingress Controller (open source edition): the web entrance (ports 80/443) that routes
+# visitors to the apps. Chosen by the owner. It is NOT the retired community "ingress-nginx"
+# project: it is maintained by F5/NGINX, uses the same `nginx` IngressClass name, but has its own
+# annotations (nginx.org/...). k3s's built-in Traefik is disabled in 02-install-k3s.sh.
+#
+# externalTrafficPolicy: Local (the chart's default, stated explicitly below) keeps each visitor's
+# REAL IP address. The app's anti-cheat checks (one entry per device/network) and its audit trail
+# depend on seeing the real client IP; without this, every request would look like it came from
+# inside the cluster. k3s's built-in ServiceLB publishes ports 80/443 on this server for the
+# LoadBalancer service.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nginx-ingress
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: nginx-ingress
+  namespace: nginx-ingress
+spec:
+  type: oci
+  interval: 24h
+  url: oci://ghcr.io/nginx/charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nginx-ingress
+  namespace: nginx-ingress
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: nginx-ingress
+      version: "2.8.x"
+      sourceRef:
+        kind: HelmRepository
+        name: nginx-ingress
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controller:
+      ingressClass:
+        name: nginx
+        create: true
+        setAsDefaultIngress: true
+      service:
+        type: LoadBalancer
+        externalTrafficPolicy: Local
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi

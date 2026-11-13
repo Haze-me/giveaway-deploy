@@ -1,0 +1,71 @@
+# The background worker: sends winners their airtime/data, closes events on time, refunds unspent
+# prize money, syncs data prices and checks the money (`manage.py run_workers`).
+#
+# EXACTLY ONE at a time, on purpose. Two workers could send the same prize twice. That is why this
+# is `replicas: 1` with `strategy: Recreate` (the old pod stops before the new one starts), and why
+# it must never be scaled up.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workers
+  namespace: giveaway
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: workers
+  template:
+    metadata:
+      labels:
+        app: workers
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Wait until the backend has applied this release's migrations, so a worker never runs
+        # new code against an old database. `migrate --check` exits non-zero while any are pending.
+        - name: wait-for-migrations
+          image: haze21/birthday-backend
+          command:
+            - sh
+            - -c
+            - until python manage.py migrate --check >/dev/null 2>&1; do echo "waiting for migrations"; sleep 5; done
+          envFrom:
+            - configMapRef:
+                name: giveaway-config
+            - secretRef:
+                name: giveaway-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 20m
+              memory: 96Mi
+            limits:
+              memory: 384Mi
+      containers:
+        - name: workers
+          image: haze21/birthday-backend
+          command: ["python", "manage.py", "run_workers"]
+          envFrom:
+            - configMapRef:
+                name: giveaway-config
+            - secretRef:
+                name: giveaway-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 512Mi

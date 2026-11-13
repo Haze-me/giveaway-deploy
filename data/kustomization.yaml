@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - backup-cronjob.yaml
+  # Created by ./scripts/seal-all.sh (encrypted, safe to commit). Until it exists, Flux reports
+  # that this Kustomization cannot build; that is expected on a fresh cluster.
+  - secrets/postgres-credentials.sealed.yaml

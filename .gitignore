@@ -1,0 +1,13 @@
+# Real secret values live here on your PC only. Only the ENCRYPTED sealed files are committed.
+secrets-local/
+
+# Never commit any kubeconfig, key or token
+*.kubeconfig
+kubeconfig*
+*.key
+*.token
+sealed-secrets-key-backup*.yaml
+
+# Local scratch
+.tmp/
+*.log

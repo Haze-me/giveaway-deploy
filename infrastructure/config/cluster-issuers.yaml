@@ -1,0 +1,32 @@
+# Two Let's Encrypt "issuers". Use STAGING first to prove issuing works (browsers will warn, but
+# the rate limits are generous), then switch the Ingress annotations to PROD.
+# ${ACME_EMAIL} is filled in by Flux from the cluster-settings ConfigMap.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: ${ACME_EMAIL}
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ${ACME_EMAIL}
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx

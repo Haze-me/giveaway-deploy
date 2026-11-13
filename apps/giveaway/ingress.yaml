@@ -1,0 +1,60 @@
+# How the outside world reaches the app: one hostname (${APP_HOST}), routed by path.
+#   /api, /admin, /static  -> backend (Django, including the Paystack webhook)
+#   everything else        -> frontend (the React app, including /e/<event> guest links)
+#
+# The NGINX Ingress Controller redirects HTTP to HTTPS by itself for any Ingress that has a `tls:`
+# block, and lets Let's Encrypt's HTTP challenge through, so no separate redirect object is needed.
+# `http01-edit-in-place` is REQUIRED with this controller: cert-manager then puts the challenge on
+# this Ingress instead of creating a separate one (which the controller would not serve).
+#
+# CERTIFICATES: this ships using Let's Encrypt STAGING (browsers show a warning, but a wrong
+# setup cannot hit the real rate limits). Once https://${APP_HOST} works, change
+# `letsencrypt-staging` to `letsencrypt-prod` below and follow docs/BUILD-RUNBOOK.md step 12.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: giveaway
+  namespace: giveaway
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    nginx.org/ssl-redirect: "true"
+    nginx.org/client-max-body-size: 10m
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - ${APP_HOST}
+      secretName: giveaway-tls
+  rules:
+    - host: ${APP_HOST}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /static
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

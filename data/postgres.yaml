@@ -1,0 +1,127 @@
+# One Postgres server for every app on this cluster. Each app gets its own database and its own
+# login (the giveaway app cannot read the landing page's data, and the other way round).
+#
+# Connection strings (built by ./scripts/generate-secrets.sh, stored sealed in each app's secret):
+#   postgres://giveaway:<password>@postgres.platform.svc.cluster.local:5432/giveaway
+#   postgres://landing:<password>@postgres.platform.svc.cluster.local:5432/landing
+#
+# The data lives on a k3s "local-path" volume, i.e. a folder on the EC2's own disk. That is simple
+# and fast, but it means the disk IS the database: the nightly backup to S3 (backup-cronjob.yaml)
+# is what protects you if the instance is lost. Test a restore (see docs/OPERATIONS.md).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: platform
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+data:
+  # Runs ONCE, only when the data directory is empty (first ever start). To add a database later,
+  # run the same SQL by hand against the running server (docs/OPERATIONS.md).
+  10-create-databases.sh: |
+    #!/bin/sh
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<SQL
+    CREATE ROLE giveaway LOGIN PASSWORD '$GIVEAWAY_DB_PASSWORD';
+    CREATE DATABASE giveaway OWNER giveaway;
+    CREATE ROLE landing LOGIN PASSWORD '$LANDING_DB_PASSWORD';
+    CREATE DATABASE landing OWNER landing;
+    SQL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: platform
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  clusterIP: None # headless: a stable DNS name straight to the single pod
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: platform
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: GIVEAWAY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: GIVEAWAY_DB_PASSWORD
+            - name: LANDING_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: LANDING_DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+            defaultMode: 0555
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

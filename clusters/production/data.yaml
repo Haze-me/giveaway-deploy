@@ -1,0 +1,20 @@
+# Postgres and its nightly backup. Deliberately slow and careful:
+#   - prune: false  -> removing a file from git NEVER deletes the database or its disk.
+#   - no variable substitution -> the shell scripts in here are applied exactly as written.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: data
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infrastructure
+  interval: 10m
+  retryInterval: 2m
+  timeout: 10m
+  path: ./data
+  prune: false
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system

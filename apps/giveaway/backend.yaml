@@ -1,0 +1,104 @@
+# The Django API (gunicorn, port 8000).
+#
+# Before each new version starts serving, an init step applies any database migrations. With one
+# backend pod this is race-free; if you ever scale to several, keep migrations in a Job instead.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: giveaway
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # start the new pod first, so a deploy never takes the API down
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: migrate
+          image: haze21/birthday-backend
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: giveaway-config
+            - secretRef:
+                name: giveaway-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      containers:
+        - name: backend
+          image: haze21/birthday-backend
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: giveaway-config
+            - secretRef:
+                name: giveaway-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # The app only answers for its real hostname and redirects plain http, so the health
+          # checks present themselves as a trusted local https request.
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: localhost
+                - name: X-Forwarded-Proto
+                  value: https
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          # Liveness only checks the process is up (not the database), so a database hiccup
+          # cannot trigger a restart loop.
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: giveaway
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
