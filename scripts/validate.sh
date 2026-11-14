@@ -42,7 +42,6 @@ EOF
 }
 stub data/secrets/postgres-credentials.sealed.yaml postgres-credentials platform
 stub apps/giveaway/secrets/giveaway-secrets.sealed.yaml giveaway-secrets giveaway
-stub apps/landing/secrets/landing-secrets.sealed.yaml landing-secrets landing
 
 SCHEMAS=(
   -schema-location default

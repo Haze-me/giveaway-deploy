@@ -5,7 +5,7 @@
 One EC2 server (t3.medium, Ubuntu 24.04, eu-west-1) runs **k3s**. Inside the cluster: NGINX Ingress Controller (web
 entrance), cert-manager (free HTTPS certificates), Sealed Secrets (encrypted secrets in git), Flux
 (applies this repo), **Postgres 16** (one database per app), the giveaway app (backend, workers,
-frontend) and the landing page's backend. Application code is in separate repos; their pipelines test the
+frontend). Application code is in separate repos; their pipelines test the
 code, build Docker images, push to Docker Hub, then write the new image tag into **this** repo. Flux sees
 that commit and rolls the cluster forward. Postgres is backed up nightly to a private S3 bucket.
 
@@ -22,10 +22,8 @@ flowchart LR
     subgraph apps[Cluster]
       nginx[NGINX Ingress :80/:443] --> fe[frontend nginx]
       nginx --> be[backend gunicorn]
-      nginx --> lbe[landing backend]
       wk[workers x1] --> pg
       be --> pg[(Postgres 16)]
-      lbe --> pg
       cm[cert-manager] -.certs.-> nginx
     end
     pg --> bk[nightly pg_dump]
@@ -49,10 +47,10 @@ Same picture in plain text:
  +-----------------------------  EC2 t3.medium, k3s  ------------------------------+
  |  NGINX Ingress :80/:443 --> frontend (nginx)                                     |
  |        |         `--> backend (gunicorn) --> Postgres 16 <-- workers (1 replica) |
- |        `-----------> landing backend ------^        |                           |
+ |                                                     |                           |
  |  cert-manager (HTTPS)   Sealed Secrets   Flux       `--nightly pg_dump--> S3    |
  +----------------------------------------------------------------------------------+
-   guests/hosts --https--> nginx        Vercel landing page --https--> landing API
+   guests/hosts --https--> nginx        Vercel landing page --https--> backend (landing-api host)
    Paystack --webhook--> backend
 ```
 
@@ -65,12 +63,12 @@ Same picture in plain text:
 | NGINX Ingress Controller (F5) | Ingress controller (installed by Flux). `externalTrafficPolicy: Local` keeps real client IPs (anti-cheat depends on them). | `infrastructure/controllers/nginx-ingress.yaml` |
 | cert-manager | Free Let's Encrypt certificates (HTTP-01). Staging issuer first, then production. | `infrastructure/` |
 | Sealed Secrets | You encrypt on your PC with a public cert; only the cluster can decrypt. Encrypted files are safe in git. | `infrastructure/`, `scripts/` |
-| Postgres 16 | StatefulSet on a local-path volume. One role + database per app (`giveaway`, `landing`), created by an init script. | `data/postgres.yaml` |
+| Postgres 16 | StatefulSet on a local-path volume. One role + database per app. Only `giveaway` is in use; the retired `landing` database is kept for rollback. | `data/postgres.yaml` |
 | Backups | CronJob 02:00 UTC: `pg_dump`, verify with `pg_restore --list`, upload to S3. | `data/backup-cronjob.yaml` |
 | giveaway backend | Django + gunicorn on 8000. Migrations run in an init container before each release. | `apps/giveaway/backend.yaml` |
 | giveaway workers | `run_workers`: payouts, sweeps, refunds, money checks, price sync. **Exactly one replica**, strategy Recreate. | `apps/giveaway/workers.yaml` |
 | giveaway frontend | nginx on 8080, serves the React build, `/api/v1` is same-origin via the ingress controller. | `apps/giveaway/frontend.yaml` |
-| landing backend | The landing page's reviews/feedback API. The landing site itself stays on Vercel. | `apps/landing/` |
+| landing API | The landing page's reviews/feedback API is served by the giveaway backend on the `landing-api` host (path `/api` only). The landing site stays on Vercel. | `apps/giveaway/ingress.yaml` |
 
 ## Request and deploy flows
 
@@ -98,7 +96,7 @@ restart on the new values automatically.
 | Workers are one replica, Recreate | Two copies of the payout loop could pay a winner twice. Never scale it. |
 | Money switches default off | A new live environment must not move money until the rehearsal passes. |
 | `prune: false` on `data` | Deleting a file from git must never delete the database volume. |
-| Landing backend in this cluster, frontend on Vercel | Requested. Landing frontend needs a full API URL: `https://landing-api.<domain>`. |
+| Landing API served by the giveaway backend, landing frontend on Vercel | The landing page's own Django service was merged into the giveaway backend (feedback is platform-level). The landing frontend still needs a full API URL: `https://landing-api.<domain>`. |
 
 ## Security notes
 

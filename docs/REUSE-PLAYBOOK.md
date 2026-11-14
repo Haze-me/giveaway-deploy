@@ -21,7 +21,7 @@ Copy this whole repo as the starting point of `<project>-deploy`, then:
 |---|---|
 | Hostnames, emails | `clusters/production/cluster-settings.yaml` |
 | Backup bucket | `data/backup-cronjob.yaml` |
-| App manifests | `apps/<app>/` (copy `apps/landing/` for a plain web API, `apps/giveaway/` for web + worker + frontend) |
+| App manifests | `apps/<app>/` (copy `apps/giveaway/` and trim what the new app does not need) |
 | Image names | `images:` in `apps/<app>/kustomization.yaml`, and `DOCKERHUB_NAMESPACE`/names in the app repo's `ci-cd.yml` |
 | Databases and roles | init script in `data/postgres.yaml`, keys in `scripts/generate-secrets.sh` and `scripts/seal-all.sh` |
 | Non-secret settings | `apps/<app>/config.env` |

@@ -21,7 +21,7 @@ command -v kubectl >/dev/null || { echo "kubectl not found on PATH" >&2; exit 1;
 command -v kubeseal >/dev/null || { echo "kubeseal not found on PATH (see the header of this script)" >&2; exit 1; }
 [ -f "$CERT" ] || { echo "Missing $CERT. Fetch it from the server first (BUILD-RUNBOOK step 9)." >&2; exit 1; }
 
-for f in postgres giveaway landing; do
+for f in postgres giveaway; do
   [ -f "secrets-local/$f.env" ] || { echo "Missing secrets-local/$f.env. Run ./scripts/generate-secrets.sh first." >&2; exit 1; }
 done
 if grep -n 'PASTE_' secrets-local/*.env; then
@@ -42,9 +42,8 @@ seal() { # name namespace env-file output-file
 
 seal postgres-credentials platform secrets-local/postgres.env data/secrets/postgres-credentials.sealed.yaml
 seal giveaway-secrets giveaway secrets-local/giveaway.env apps/giveaway/secrets/giveaway-secrets.sealed.yaml
-seal landing-secrets landing secrets-local/landing.env apps/landing/secrets/landing-secrets.sealed.yaml
 
 echo
-echo "Done. Commit and push these three files:"
-echo "  git add data/secrets apps/giveaway/secrets apps/landing/secrets secrets/pub-cert.pem"
+echo "Done. Commit and push these files:"
+echo "  git add data/secrets apps/giveaway/secrets secrets/pub-cert.pem"
 echo "  git commit -m 'Add sealed secrets' && git push"

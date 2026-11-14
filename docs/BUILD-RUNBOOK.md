@@ -116,14 +116,13 @@ bash on-server/03-install-flux-cli.sh
 ## Step 7. Accounts and tokens for the pipelines (Docker Hub + GitHub)
 
 1. **Docker Hub** > Account settings > Personal access tokens > Generate (Read & Write). Repos
-   `birthday-backend`, `birthday-frontend` and `haze-landing-backend` are created on first push; make sure
+   `birthday-backend` and `birthday-frontend` are created on first push; make sure
    each is **Public**.
 2. **GitHub token for CI** (fine-grained personal access token): repository access = **only
    `giveaway-deploy`**; permission **Contents: Read and write**. Call it `DEPLOY_REPO_TOKEN`.
 3. In the **app repo** > Settings > Secrets and variables > Actions:
    - Secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `DEPLOY_REPO_TOKEN`
    - Variable: `DEPLOY_REPO` = `your-github-user/giveaway-deploy`
-4. Do the same three secrets and the variable in the **landing page repo**.
 
 Do NOT put `VITE_*` values in GitHub; for the landing page they go in Vercel.
 
@@ -174,7 +173,7 @@ detection and makes stored prize PINs unreadable.
 
 ```bash
 ./scripts/seal-all.sh
-git add data/secrets apps/giveaway/secrets apps/landing/secrets secrets/pub-cert.pem
+git add data/secrets apps/giveaway/secrets secrets/pub-cert.pem
 git commit -m "Add sealed secrets"
 git push
 ```
@@ -189,8 +188,7 @@ Check: `kubectl -n platform get pods` shows `postgres-0` Running.
 1. Push the app code to `main` in the app repo. The "CI/CD" workflow runs tests, builds and pushes both
    images, then commits the new tags to `giveaway-deploy`. Watch the Actions tab. If tests fail, fix them:
    nothing is built or deployed from a red build.
-2. For the landing backend, push to the landing repo `main` (its workflow does the same).
-3. On the server: `flux reconcile kustomization apps --with-source`, then
+2. On the server: `flux reconcile kustomization apps --with-source`, then
    `kubectl -n giveaway get pods` should show `backend`, `workers`, `frontend` Running.
 4. Create your admin login:
 
@@ -205,14 +203,13 @@ one, see step 12).
 
 Until now the certificate comes from Let's Encrypt's **staging** service (untrusted by browsers, but no rate
 limits while you test). Check it was issued: `kubectl get certificate -A` shows `READY True` for
-`giveaway-tls` and `landing-api-tls`.
+`giveaway-tls` and `landing-api-tls` (both come from the one giveaway ingress).
 
-Then switch to production. In `apps/giveaway/ingress.yaml` and `apps/landing/ingress.yaml` change
+Then switch to production. In `apps/giveaway/ingress.yaml` change
 `cert-manager.io/cluster-issuer: letsencrypt-staging` to `letsencrypt-prod`. Push, then on the server:
 
 ```bash
-kubectl -n giveaway delete secret giveaway-tls
-kubectl -n landing delete secret landing-api-tls
+kubectl -n giveaway delete secret giveaway-tls landing-api-tls
 ```
 
 (cert-manager issues a fresh certificate.) Check in a browser: `https://app.example.com` shows a valid

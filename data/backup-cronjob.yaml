@@ -16,7 +16,7 @@ metadata:
 data:
   BACKUP_BUCKET: "emchrismobility-giveaway-backups"
   AWS_DEFAULT_REGION: "eu-west-1"
-  DATABASES: "giveaway landing"
+  DATABASES: "giveaway"
 ---
 apiVersion: v1
 kind: ConfigMap

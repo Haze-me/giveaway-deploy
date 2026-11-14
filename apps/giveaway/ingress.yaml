@@ -26,6 +26,9 @@ spec:
     - hosts:
         - ${APP_HOST}
       secretName: giveaway-tls
+    - hosts:
+        - ${LANDING_API_HOST}
+      secretName: landing-api-tls
   rules:
     - host: ${APP_HOST}
       http:
@@ -58,3 +61,14 @@ spec:
                 name: frontend
                 port:
                   number: 80
+    # The landing page's API host: only /api is exposed here (no /admin, no frontend).
+    - host: ${LANDING_API_HOST}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000

@@ -8,8 +8,6 @@ Everyday tasks once the environment is built. Server commands assume you are SSH
 `apps/giveaway/kustomization.yaml` here gets a commit like `giveaway: deploy 3fa9c1e`. Flux applies it within
 about five minutes. To skip the wait: `flux reconcile kustomization apps --with-source`.
 
-**Landing backend:** same, from the landing repo (`apps/landing/kustomization.yaml`).
-
 **Config change** (hostnames, money switches, etc.): edit `apps/giveaway/config.env` (or
 `clusters/production/cluster-settings.yaml`), run `./scripts/validate.sh`, commit, push. The backend and
 workers restart on their own because the ConfigMap name changes with its content.
@@ -124,7 +122,7 @@ and the password inside `DATABASE_URL` must change in the same commit.
 
 ## Adding things
 
-**Another app:** copy `apps/landing/` as a template to `apps/<name>/`, add it to `apps/kustomization.yaml`,
+**Another app:** copy `apps/giveaway/` as a template to `apps/<name>/`, add it to `apps/kustomization.yaml`,
 add a role and database in the Postgres init section of `data/postgres.yaml` (and a password key in the
 postgres secret), seal a new secret, add an A record. See [REUSE-PLAYBOOK.md](REUSE-PLAYBOOK.md).
 

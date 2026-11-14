@@ -18,7 +18,7 @@ OUT="secrets-local"
 mkdir -p "$OUT"
 umask 077
 
-if [ -e "$OUT/giveaway.env" ] || [ -e "$OUT/postgres.env" ] || [ -e "$OUT/landing.env" ]; then
+if [ -e "$OUT/giveaway.env" ] || [ -e "$OUT/postgres.env" ]; then
   echo "secrets-local/ already has files. Refusing to overwrite them (that could break live data)." >&2
   echo "If you really want fresh ones, move the old folder away first." >&2
   exit 1
@@ -33,6 +33,8 @@ rand_fernet() { openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n'; }
 
 PG_ADMIN="$(rand_hex 16)"
 PG_GIVEAWAY="$(rand_hex 16)"
+# The landing login still exists in Postgres (data/postgres.yaml creates it, and the old landing
+# database is kept for rollback), so its password is still generated. No app uses it any more.
 PG_LANDING="$(rand_hex 16)"
 HOST="postgres.platform.svc.cluster.local:5432"
 
@@ -53,11 +55,6 @@ VTPASS_PUBLIC_KEY=PASTE_YOUR_LIVE_VTPASS_PUBLIC_KEY
 VTPASS_SECRET_KEY=PASTE_YOUR_LIVE_VTPASS_SECRET_KEY
 RESEND_API_KEY=PASTE_YOUR_RESEND_API_KEY
 GEMINI_API_KEY=PASTE_YOUR_GEMINI_API_KEY
-EOF
-
-cat > "$OUT/landing.env" <<EOF
-DJANGO_SECRET_KEY=$(rand_key)
-DATABASE_URL=postgres://landing:$PG_LANDING@$HOST/landing
 EOF
 
 echo "Created:"

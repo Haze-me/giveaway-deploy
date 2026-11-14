@@ -14,7 +14,7 @@ data:
   # Where the landing page's backend (reviews + feedback) answers. The landing page itself
   # stays on Vercel and calls this address.
   LANDING_API_HOST: "landing-api.emchrismobility.com"
-  # Origins allowed to call the landing backend (browser CORS): your landing page's address(es),
+  # Origins allowed to call the landing API (browser CORS; served by the giveaway backend): your landing page's address(es),
   # comma separated, no trailing slash. Example: https://www.example.com,https://my-site.vercel.app
   LANDING_ORIGINS: "https://www.emchrismobility.com,https://emchrismobility.com,https://app.emchrismobility.com"
   # Let's Encrypt sends certificate expiry warnings here.

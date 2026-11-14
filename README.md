@@ -1,6 +1,6 @@
 # giveaway-deploy
 
-Deployment repository for the Event Giveaway app (and the landing page's small backend). It holds
+Deployment repository for the Event Giveaway app. It holds
 **everything the server runs**, and nothing else. The application code lives in separate repos.
 
 A single AWS EC2 server runs **k3s** (small production Kubernetes). **Flux** inside the cluster watches
@@ -34,8 +34,8 @@ this repo and applies whatever is on `main`. Postgres runs in the cluster. Nothi
 clusters/production/   Flux wiring + cluster-settings.yaml (the few values you edit: hostnames, emails)
 infrastructure/        cert-manager (HTTPS certificates), Sealed Secrets, NGINX Ingress Controller, Let's Encrypt issuers
 data/                  Postgres (StatefulSet) and the nightly backup to S3
-apps/giveaway/         backend, workers, frontend, ingress for the giveaway app
-apps/landing/          the landing page's backend (the landing site itself stays on Vercel)
+apps/giveaway/         backend, workers, frontend, ingress for the giveaway app (its backend also answers
+                       the landing page's feedback API on the landing-api host; the site stays on Vercel)
 scripts/               PC-side: generate-secrets, seal-all, validate, check-placeholders
 scripts/on-server/     Run on the EC2 server in order: 01 .. 05, plus restore-db.sh
 .github/workflows/     Validates the manifests on every push

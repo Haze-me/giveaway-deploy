@@ -19,12 +19,12 @@ jobs:
           sudo mv kubeconform /usr/local/bin/
 
       - name: Validate (kubectl is preinstalled on GitHub runners)
-        run: ./scripts/validate.sh
+        run: bash ./scripts/validate.sh
 
       - name: Shell scripts parse
         run: for f in scripts/*.sh scripts/on-server/*.sh; do bash -n "$f"; done
 
       # A warning, not a failure, so a fresh clone is still green; run it yourself before go-live.
       - name: Placeholders left?
-        run: ./scripts/check-placeholders.sh
+        run: bash ./scripts/check-placeholders.sh
         continue-on-error: true
