@@ -22,4 +22,4 @@ images:
   - name: haze21/birthday-backend
     newTag: a7b3ac0
   - name: haze21/birthday-frontend
-    newTag: a7b3ac0
+    newTag: 7e5767f
